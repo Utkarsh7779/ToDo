@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animated Todo List</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      color: #333;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.dark-mode {
+      background-color: #121212;
+      color: #eee;
+    }
+    header {
+      background: linear-gradient(to right, #4e54c8, #8f94fb);
+      color: white;
+      padding: 1.5rem;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .container {
+      max-width: 800px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+    input, select, button {
+      border-radius: 6px;
+      padding: 0.6rem;
+      margin: 0.4rem 0;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    button {
+      background-color: #4e54c8;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #5f65d8;
+    }
+    button:active {
+      transform: scale(0.95);
+    }
+    .todo-list {
+      margin-top: 1.5rem;
+    }
+    .todo {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.8rem;
+      animation: slideIn 0.3s ease-out;
+      transition: transform 0.2s;
+    }
+    .todo:hover {
+      transform: scale(1.01);
+    }
+    .todo.completed {
+      opacity: 0.5;
+      text-decoration: line-through;
+      transition: opacity 0.4s;
+    }
+    .priority.low {
+      color: green;
+    }
+    .priority.medium {
+      color: orange;
+    }
+    .priority.high {
+      color: red;
+    }
+    .priority:hover {
+      text-shadow: 0 0 5px currentColor;
+      transform: scale(1.05);
+    }
+    .todo-actions button {
+      background: none;
+      border: none;
+      margin-left: 0.5rem;
+      font-size: 1.1rem;
+      color: #666;
+    }
+    .todo-actions button:hover {
+      color: #000;
+    }
+    .dark-mode .todo {
+      background: #1e1e1e;
+      color: #eee;
+    }
+    .dark-mode .todo-actions button {
+      color: #bbb;
+    }
+    .dark-mode .todo-actions button:hover {
+      color: #fff;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    /* Sand Clock Animation */
+    .sand-clock {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .sand-clock i {
+      font-size: 40px;
+      color: #ff9900;
+      animation: tilt 1s infinite ease-in-out;
+    }
+    @keyframes tilt {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(20deg); }
+    }
+    @media (max-width: 600px) {
+      .todo {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .todo-actions {
+        margin-top: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body onload="applyTheme()">
+  <header>
+    <h1>My Animated Todo List</h1>
+    <button onclick="toggleDarkMode()">🌙 Toggle Dark Mode</button>
+  </header>
+  <div class="container">
+    <input type="text" id="todo-input" placeholder="Add your task..." />
+    <select id="category">
+      <option value="Work">Work</option>
+      <option value="Personal">Personal</option>
+      <option value="Urgent">Urgent</option>
+    </select>
+    <input type="date" id="due-date" />
+    <input type="time" id="reminder-time" />
+    <select id="priority">
+      <option value="low">Low Priority</option>
+      <option value="medium">Medium Priority</option>
+      <option value="high">High Priority</option>
+    </select>
+    <button onclick="addTodo()">➕ Add Task</button>
+    <button onclick="exportTasks()">Export</button>
+    <input type="file" id="importFile" onchange="importTasks(event)" style="margin-left:10px;" />
+    <div style="margin-top:1rem;">
+      <button onclick="filterTasks('All')">All</button>
+      <button onclick="filterTasks('Work')">Work</button>
+      <button onclick="filterTasks('Personal')">Personal</button>
+      <button onclick="filterTasks('Urgent')">Urgent</button>
+    </div>
+    <div id="summary" style="margin:1rem 0;font-weight:bold;">Total: 0 | Completed: 0 | Pending: 0</div>
+    <div class="todo-list" id="todo-list"></div>
+    <div class="sand-clock" id="loader" style="display:none;">
+      <i class="fa-solid fa-hourglass-half"></i>
+    </div>
+  </div>
+  <script>
+    let tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+    let currentFilter = "All";
+    function addTodo() {
+      const input = document.getElementById('todo-input');
+      const priority = document.getElementById('priority');
+      const loader = document.getElementById('loader');
+      const dueDate = document.getElementById('due-date');
+      const reminderTime = document.getElementById('reminder-time');
+      const category = document.getElementById('category');
+      if (input.value.trim() === '') return;
+      loader.style.display = 'block';
+      setTimeout(() => {
+        const todo = {
+          id: Date.now(),
+          text: input.value,
+          priority: priority.value,
+          category: category.value,
+          dueDate: dueDate.value,
+          reminderTime: reminderTime.value,
+          completed: false
+        };
+        tasks.push(todo);
+        localStorage.setItem("tasks", JSON.stringify(tasks));
+        renderTodos();
+        input.value = '';
+        category.value = 'Work';
+        dueDate.value = '';
+        reminderTime.value = '';
+        loader.style.display = 'none';
+      }, 700);
+    }
+    function renderTodos() {
+      const list = document.getElementById('todo-list');
+      const summary = document.getElementById('summary');
+      list.innerHTML = '';
+      let completed = 0;
+      let filtered = tasks.filter(task => currentFilter === 'All' || task.category === currentFilter);
+      filtered.forEach((task, i) => {
+        const div = document.createElement('div');
+        div.className = 'todo' + (task.completed ? ' completed' : '');
+        const priorityClass = `priority ${task.priority}`;
+        if (task.completed) completed++;
+        div.innerHTML = `
+          <div>
+            <span>${task.text}</span>
+            <span class="${priorityClass}"> (${task.priority})</span>
+            <span style="margin-left:10px;font-size:0.9em;color:#888;">${task.dueDate ? '<i class=\'fa fa-calendar\'></i> ' + task.dueDate : ''}</span>
+            <span style="margin-left:10px;font-size:0.9em;color:#888;">${task.reminderTime ? '<i class=\'fa fa-clock\'></i> ' + task.reminderTime : ''}</span>
+            <span style="margin-left:10px;font-size:0.9em;color:#888;">${task.category ? 'Category: ' + task.category : ''}</span>
+          </div>
+          <div class="todo-actions">
+            <button onclick="completeTodo(this)"><i class="fa fa-check"></i></button>
+            <button onclick="editTodo(this)"><i class="fa fa-pen"></i></button>
+            <button onclick="deleteTodo(this)"><i class="fa fa-trash"></i></button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+      summary.textContent = `Total: ${tasks.length} | Completed: ${completed} | Pending: ${tasks.length - completed}`;
+    }
+    function exportTasks() {
+      const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "todo_tasks.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    function importTasks(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const importedTasks = JSON.parse(e.target.result);
+          if (Array.isArray(importedTasks)) {
+            tasks = importedTasks;
+            localStorage.setItem("tasks", JSON.stringify(tasks));
+            renderTodos();
+          } else {
+            alert("Invalid file format");
+          }
+        } catch (err) {
+          alert("Failed to import tasks: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+    function filterTasks(category) {
+      currentFilter = category;
+      renderTodos();
+    }
+    function checkReminders() {
+      setInterval(() => {
+        const now = new Date();
+        tasks.forEach(task => {
+          if (task.reminderTime && !task.notified) {
+            const [h, m] = task.reminderTime.split(":");
+            const today = new Date();
+            today.setHours(h, m, 0, 0);
+            if (today <= now) {
+              alert(`⏰ Reminder: "${task.text}"`);
+              task.notified = true;
+              localStorage.setItem("tasks", JSON.stringify(tasks));
+            }
+          }
+        });
+      }, 60000);
+    }
+    function completeTodo(btn) {
+      const todo = btn.closest('.todo');
+      const idx = Array.from(todo.parentNode.children).indexOf(todo);
+      tasks[idx].completed = !tasks[idx].completed;
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderTodos();
+    }
+    function editTodo(btn) {
+      const todo = btn.closest('.todo');
+      const idx = Array.from(todo.parentNode.children).indexOf(todo);
+      const textSpan = todo.querySelector('span');
+      const newTask = prompt('Edit your task:', textSpan.textContent);
+      if (newTask !== null && newTask.trim() !== '') {
+        tasks[idx].text = newTask;
+        localStorage.setItem("tasks", JSON.stringify(tasks));
+        renderTodos();
+      }
+    }
+    function deleteTodo(btn) {
+      const todo = btn.closest('.todo');
+      const idx = Array.from(todo.parentNode.children).indexOf(todo);
+      tasks.splice(idx, 1);
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderTodos();
+    }
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+      localStorage.setItem('theme', theme);
+    }
+    function applyTheme() {
+      const theme = localStorage.getItem('theme');
+      if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+      }
+    }
+    checkReminders();
+    renderTodos();
+  </script>
+</body>
+</html>
